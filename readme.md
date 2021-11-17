@@ -1,53 +1,97 @@
-## Prerequisite
-
-1. Installed a Mininet VM.
-
-2. Can open a Mininet console using SSH to Mininet VM:
-
-   ```shell
-   ssh mininet@MININET_IP_ADDRESS # password is also mininet
-   ```
-
-## Set up
-
-Copy examples folder from your local host to Mininet VM root path i.e. `~/examples`. 
-
-1. Find the IP_ADDRESS of your Mininet VM using: `ifconfig`.
-2. Find the the absolute path EXAMPLE_FOLDER of examples folder in your local host i.e. E.g. `/home/cs4226/examples`.
+### Task 1 MininetTopo
 
 ```shell
-scp -r EXAMPLE_FOLDER mininet@MININET_IP_ADDRESS:
+sudo python mininetTopo.py # expect to see exact number of devices are launched.
 ```
 
-**Launch POX Controller**: Open one console of Mininet VM, run following commands:
+![image-20211117213502945](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213502945.png)
+
+### Task 2 PingAll
 
 ```shell
-mv controller-*.py ~/pox
-cd ~/pox
-# run hub controller.
-./pox.py controller-hub
-# run example controller
-# ./pox.py controller-example
+pingall # expect to see all hosts ping each other successfully
 ```
 
-**Launch Mininet Topology**: Open another console of Mininet VM, run following commands:
+![image-20211117213532399](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213532399.png)
+
+### Task 3 Fault Tolerance
 
 ```shell
-cd ~/examples
-sudo python mininetTopo-example.py
+pingall # same
+h1 ping h4 # connected
+link s1 s2 down # drop the link
+h1 ping h4 # there could be a timeout before reconnection
+link s1 s2 up
 ```
 
-## Issues
+![image-20211117213732413](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213732413.png)
 
-If you have the error message when launch your POX controller:
+![image-20211117213618353](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213618353.png)
 
-```
-Error 98 while binding socket: Address already in use
+### Task 4 Firewall
+
+h4 on port 4001
+
+```shell
+h4 iperf -s -p 4001 & # start a iperf server on port 4001
+h5 iperf -c h4 -p 4001 # no response
+h1 iperf -c h4 -p 4001 # no response
 ```
 
-Try to clean the old Mininet topologies and restart the POX controller again:
+![image-20211117212511829](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117212511829.png)
 
+```shell
+h4 iperf -s -p 8080 & # start a iperf server on port 8080
+h5 iperf -c h4 -p 8080 # local 10.0.0.5 port XXX connected with 10.0.0.4 port 8080
 ```
-sudo mn -c
+
+![image-20211117212613458](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117212613458.png)
+
+h2 to h5 on port 1000
+
+```shell
+h5 iperf -s -p 1000 & # start a iperf server on port 1000
+h2 iperf -c h5 -p 1000 # no response
+h1 iperf -c h5 -p 1000 # local 10.0.0.1 port XXX connected with 10.0.0.5 port 1000
+h7 iperf -c h5 -p 1000 # local 10.0.0.7 port XXX connected with 10.0.0.5 port 1000
 ```
+
+![image-20211117212851585](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117212851585.png)
+
+```shell
+h5 iperf -s -p 8080 & # start a iperf server on port 8080
+h2 iperf -c h5 -p 8080 # local 10.0.0.2 port XXX connected with 10.0.0.5 port 8080
+```
+
+![image-20211117213134930](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213134930.png)
+
+### Task 5 Premium Traffic
+
+premium to premium
+
+```shell
+iperf h1 h3 # Results: ~10Mbits
+```
+
+![image-20211117213322046](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213322046.png)
+
+normal to premium
+
+```shell
+iperf h1 h2 # Results: ~5Mbits or ~10Mbits
+iperf h2 h1 # Results: ~5Mbits or ~10Mbits
+```
+
+![image-20211117213345926](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213345926.png)
+
+normal to normal 
+
+```shell
+iperf h2 h5 # Results: ~5Mbits
+```
+
+![image-20211117213402588](https://cdn.jsdelivr.net/gh/irissky/00-pic/2021summer-images/image-20211117213402588.png)
+
+
+
 
