@@ -1,6 +1,6 @@
 #-*- coding: utf-8 -*-
 '''
-Please add your name:Hu Yue
+Please add your name: Hu Yue
 Please add your matric number: A0224726E
 '''
 import sys
@@ -27,9 +27,9 @@ class Controller(EventMixin):
     def __init__(self):
         self.listenTo(core.openflow)
         core.openflow_discovery.addListeners(self)
-        # Routing table for 4 switches: Dictionary of dictionary
         self.fw_policyList = [] #firewall policy list
-        self.psc = {} #Premium Service Class
+        self.psc = {} #Premium Service 
+        # Routing table for 4 switches: Dictionary of dictionary
         self.learnedTable = dict() # {switch -> {mac -> port}}
 
         
@@ -42,7 +42,7 @@ class Controller(EventMixin):
         packet = event.parsed
       
          
-     # install entries to the route table
+        # install entries to the route table
         def install_enqueue(event,outport,q_id, message = None):
             message.match.dl_src = packet.src
             message.match.dl_dst = packet.dst
@@ -50,34 +50,34 @@ class Controller(EventMixin):
             message.data = event.ofp
             message.priority = 1000
             event.connection.send(message)
-            log.info("switch: %s; outport: %s\n" % (switch_dpid,outport))
-            log.info("installing qid: %i for %s<->%s;\n" %(q_id,packet.src,packet.dst))
+            log.debug("switch: %s; outport: %s\n" % (switch_dpid,outport))
+            log.debug("installing qid: %i for %s<->%s;\n" %(q_id,packet.src,packet.dst))
     
     	# Check the packet and decide how to route the packet
         def forward(message = None):
-            # check switch
+            # check switch, if not in the table, add it
             if switch_dpid not in self.learnedTable:
                 self.learnedTable[switch_dpid] = dict()
             
-            # check src: if pkt src[MAC:port] not recorded, store in table
+            # check src: if pkt's src-port [MAC:port] not recorded, store in table
             if packet.src not in self.learnedTable[switch_dpid]:
                 newEntry = inport 
                 self.learnedTable[switch_dpid][packet.src] = newEntry
                    
             def checkPkt(sourceip = None, destinationip = None):
-                # Checks the packet type to determine where to send the packet (Task 3/4)
+                # Checks the packet type to determine where to send the packet 
                 if packet.type == packet.IP_TYPE:
-                    log.info("Packet is IP type %s", packet.type)
+                    log.debug("Packet is IP type %s", packet.type)
                     ippacket = packet.payload
                     sourceip = ippacket.srcip
                     destinationip = ippacket.dstip
                 elif packet.type == packet.ARP_TYPE:
-                    log.info("Packet is ARP type %s", packet.type)
+                    log.debug("Packet is ARP type %s", packet.type)
                     arppacket = packet.payload
                     sourceip = arppacket.protosrc
                     destinationip = arppacket.protodst
                 else:
-                    log.info("Packet is Unknown type %s", packet.type)
+                    log.debug("Packet is Unknown type %s", packet.type)
                     sourceip = None
                     destinationip = None
                 return(sourceip,destinationip)
@@ -85,13 +85,13 @@ class Controller(EventMixin):
             def is_in_psc(destinationip):
                 for i in self.psc[switch_dpid]:
                     if destinationip in i:
-                        log.info("Destination IP %s is in list of Premium Service Class", destinationip)
+                        log.debug("Destination IP %s is in list of Premium Service Class", destinationip)
                         return True
-                log.info("Destination IP %s is not in list of Premium Service Class", destinationip)
+                log.debug("Destination IP %s is not in list of Premium Service Class", destinationip)
                 return False
             
             def make_q_id(destinationip):
-                # Check if source and destination ip is in same premium service class
+                # Check if source and destination ip is in the premium service list
                 qid = 0
                 # If there is no address, packet is sent to a default queue 0
                 # If the IP addresses are in the list of PSC, packet is sent via the Premium Queue 
@@ -111,7 +111,7 @@ class Controller(EventMixin):
             if packet.dst in self.learnedTable[switch_dpid]:
                 outport = self.learnedTable[switch_dpid][packet.dst]
                 install_enqueue(event,outport,q_id,message)
-            # check dst: if dst is a multicast destination or pkt dst[MAC:port] not recorded
+            # check dst: if dst is a multicast destination or pkt dst[MAC:port] not recorded, we need to flood
             else:
                 flood(message)
          
@@ -121,11 +121,11 @@ class Controller(EventMixin):
             message.data = event.ofp
             message.in_port = inport
             event.connection.send(message)
-            log.info("Flood Message sent via port %i\n", of.OFPP_FLOOD)
+            log.debug("Flood Message sent via port %i\n", of.OFPP_FLOOD)
             return
 
         msg = of.ofp_flow_mod() #modify flow table
-        msg.hard_timeout = 5
+        msg.hard_timeout = 5 #for task3:Fault-Tolerance Functionality
         forward(msg)
 
     def _handle_ConnectionUp(self, event):
@@ -135,17 +135,17 @@ class Controller(EventMixin):
         self.psc[switch_dpid] = []
         
         def read_policies():
-            # Firewall: reads in policy.in file
+            # reads in policy.in file
             path = "policy.in"
             reader = open(path,"r")
             nums = reader.readline().split(" ")
             numOfFW = int(nums[0])
             numOfPM = int(nums[1])
-            
+            # for Task 4: Firewall
             for _ in range(numOfFW):
                 line = reader.readline().strip().split(",")
                 self.fw_policyList.append(line)
-            
+            # for Task 5: Premium Traffic
             for _ in range(numOfPM):
                 line = reader.readline().strip().split(',')
                 self.psc[switch_dpid].append(line)
@@ -161,16 +161,16 @@ class Controller(EventMixin):
             if (type == 2):
                 block.dl_dst = EthAddr(self.ip2mac(policy[0]))
                 block.tp_dst = int(policy[1]) 
-                log.info("Blocking destination {} on port {}".format(policy[0],policy[1]))
+                log.debug("Blocking destination {} on port {}".format(policy[0],policy[1]))
             elif (type == 3):
                 block.dl_src = EthAddr(self.ip2mac(policy[0]))
                 block.dl_dst = EthAddr(self.ip2mac(policy[1]))
                 block.tp_dst = int(policy[2])
-                log.info("Blocking source {}, destination {} on port {}".format(policy[0], policy[1], policy[2]))
+                log.debug("Blocking source {}, destination {} on port {}".format(policy[0], policy[1], policy[2]))
             flow_mod.match = block
             flow_mod.priority = 2000
             connection.send(flow_mod)  
-            log.info("Firewall entry sent")
+            log.debug("Firewall entry sent")
             
         read_policies()
         for i in self.fw_policyList:

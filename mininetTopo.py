@@ -25,14 +25,11 @@ class TreeTopo(Topo):
         file = open('topology.in')
         [hostNum, switchNum, linkNum] = [int(x) for x in file.readline().split(' ')]
          
-
         # add hosts
         hosts = []
         for i in range(hostNum):
             host = self.addHost('h%d' % (i+1))
-            hosts.append(host)
-        info(hosts)
-            
+            hosts.append(host)     
 
         # add switches
         switches = []
@@ -41,9 +38,6 @@ class TreeTopo(Topo):
             switch = self.addSwitch('s%d' % (i+1), **sconfig)
             switches.append(switch)
         
-        info(switches)
-        info(self.switches())
-        
         # add links
         self.linkInfos = []
         for i in range(linkNum):
@@ -51,20 +45,13 @@ class TreeTopo(Topo):
             self.linkInfos.append(link)
             firstnode = link[0]
             secondnode = link[1]
-            # Links are added without bandwidth as bandwidth is added in the queue
             self.addLink(firstnode, secondnode)
-            info(link)
-        info(self.links(True, False, True))
         file.close()
-
-
-
 
 def startNetwork():
     info('** Creating network and run simple performance test\n')
     topo = TreeTopo()
     global net
-    # modify the ip address if you are using a remote pox controller
     net = Mininet(topo=topo, link=Link,
                   controller=lambda name: RemoteController(
                       name, ip= SERVER_IP),
@@ -72,16 +59,15 @@ def startNetwork():
     info('** Starting the network\n')
     
     net.start()
-        # Used to calculate the link speed between nodes in bits per second (Task 1)
+    # Used to calculate the link speed between nodes in bits per second 
     def getLinkSpeed(firstnode, secondnode):
         for i in topo.linkInfos:
             if firstnode == i[0] and secondnode == i[1]:
                 return int(i[2]) * 1000000
-
         return 0
     
     info('Creating QoS\n')
-    cnt = 0
+
     for link in topo.links(True, False, True):
         for s in topo.switches():
             # If one end of the link is a switch, we need to do QoS
@@ -91,15 +77,15 @@ def startNetwork():
                     port = linkInfo['port%i' % i]
                     bw = getLinkSpeed(linkInfo["node1"], linkInfo["node2"])
                     # premium_low = premium tier lower bound guarantee
-                    # normal_high = regular tier upper bound
+                    # normal_high = regular tier upper bound guarantee
                     premium_low,normal_high =  0.8*bw, 0.5*bw
 
                     #  Create QoS Queues
                     # Interface name is <switch>-eth<port>
-                    # q0 = normal tier
-                    # q1 = premium tier
+                    # q0 = default 
+                    # q1 = premium 
+                    # q2 = normal 
                     interface = '%s-eth%s' % (s, port)
-                    cnt += 1
                     info("link: %s<->%s;sw: %s; inf: %s; \n" %(d1,d2,s,interface))
                     info("bw: %i, q0_high: %i; q1_low:%i\n" %(bw,normal_high,premium_low))
                     os.system("sudo ovs-vsctl -- set Port %s qos=@newqos \
@@ -108,11 +94,9 @@ def startNetwork():
                             -- --id=@q1 create queue other-config:min-rate=%i \
                             -- --id=@q2 create queue other-config:max-rate=%i" % (interface, bw, bw, bw, premium_low, normal_high))
 
-    
-    info("running CLI")
+    info("running CLI\n")
     CLI(net)
 
-    
 def stopNetwork():
     if net is not None:
         net.stop()
@@ -123,7 +107,6 @@ def stopNetwork():
 if __name__ == '__main__':
     # Force cleanup on exit by registering a cleanup function
     atexit.register(stopNetwork)
-
     # Tell mininet to print useful information
     setLogLevel('info')
     startNetwork()
